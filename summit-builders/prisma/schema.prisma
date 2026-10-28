@@ -1,0 +1,487 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         String    @default("SALES_REP")
+  phone        String?
+  active       Boolean   @default(true)
+  employeeId   String?   @unique
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+  auditLogs    AuditLog[]
+  createdLeads Lead[]    @relation("LeadCreator")
+  notifications Notification[]
+  estimates    Estimate[] @relation("EstimateCreator")
+  approvedEstimates Estimate[] @relation("EstimateApprover")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model Employee {
+  id               String    @id @default(cuid())
+  employeeNo       String    @unique
+  firstName        String
+  lastName         String
+  email            String    @unique
+  phone            String?
+  position         String
+  departmentId     String?
+  department       Department? @relation(fields: [departmentId], references: [id])
+  hireDate         DateTime
+  status           String    @default("ACTIVE")
+  managerId        String?
+  manager          Employee? @relation("EmployeeManager", fields: [managerId], references: [id])
+  reports          Employee[] @relation("EmployeeManager")
+  skills           String    @default("")
+  hourlyRate       Float     @default(0)
+  address          String?
+  emergencyContact String?
+  notes            String?
+  avatarColor      String?
+  createdAt        DateTime  @default(now())
+  user             User?
+  customers        Customer[] @relation("CustomerRep")
+  leads            Lead[]    @relation("LeadAssignee")
+  requests         ServiceRequest[] @relation("RequestAssignee")
+  calls            Call[]
+  followUps        FollowUp[]
+  projects         Project[] @relation("ProjectManager")
+  dispatchedJobs   Job[]     @relation("JobDispatcher")
+  managedJobs      Job[]     @relation("JobManager")
+  jobAssignments   JobAssignment[]
+  attendance       Attendance[]
+  notifications    Notification[]
+}
+
+model Department {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  createdAt   DateTime   @default(now())
+  employees   Employee[]
+}
+
+model Customer {
+  id            String   @id @default(cuid())
+  customerNo    String   @unique
+  name          String
+  company       String?
+  phone         String
+  email         String?
+  serviceAddress String
+  city          String
+  state         String   @default("CO")
+  zip           String
+  billingAddress String?
+  leadSource    String   @default("Website")
+  assignedRepId String?
+  assignedRep   Employee? @relation("CustomerRep", fields: [assignedRepId], references: [id])
+  status        String   @default("ACTIVE")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  leads         Lead[]
+  requests      ServiceRequest[]
+  calls         Call[]
+  followUps     FollowUp[]
+  estimates     Estimate[]
+  projects      Project[]
+  jobs          Job[]
+  activities    Activity[]
+}
+
+model Service {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  slug             String   @unique
+  shortDescription String
+  description      String?
+  icon             String   @default("Hammer")
+  imageUrl         String?
+  active           Boolean  @default(true)
+  featured         Boolean  @default(false)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  leads            Lead[]
+  requests         ServiceRequest[]
+  projects         Project[]
+}
+
+model Lead {
+  id             String   @id @default(cuid())
+  leadNo         String   @unique
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  title          String
+  source         String   @default("Website")
+  serviceId      String?
+  service        Service? @relation(fields: [serviceId], references: [id])
+  projectType    String   @default("Residential")
+  estimatedValue Float    @default(0)
+  assignedToId   String?
+  assignedTo     Employee? @relation("LeadAssignee", fields: [assignedToId], references: [id])
+  priority       String   @default("MEDIUM")
+  status         String   @default("NEW")
+  description    String?
+  notes          String?
+  nextFollowUp   DateTime?
+  lastContactAt  DateTime?
+  responseMins   Int?
+  wonAt          DateTime?
+  lostAt         DateTime?
+  lostReason     String?
+  createdById    String?
+  createdBy      User?    @relation("LeadCreator", fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  requests       ServiceRequest[]
+  calls          Call[]
+  followUps      FollowUp[]
+  estimates      Estimate[]
+  activities     Activity[]
+
+  @@index([assignedToId])
+  @@index([status])
+}
+
+model ServiceRequest {
+  id            String    @id @default(cuid())
+  requestNo     String    @unique
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  leadId        String?
+  lead          Lead?     @relation(fields: [leadId], references: [id])
+  source        String    @default("Website")
+  serviceId     String?
+  service       Service?  @relation(fields: [serviceId], references: [id])
+  projectType   String    @default("Residential")
+  description   String
+  urgency       String    @default("NORMAL")
+  address       String
+  city          String
+  state         String    @default("CO")
+  zip           String
+  preferredDate DateTime?
+  assignedToId  String?
+  assignedTo    Employee? @relation("RequestAssignee", fields: [assignedToId], references: [id])
+  status        String    @default("NEW")
+  notes         String?
+  estimatedSize String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  attachments   Attachment[]
+
+  @@index([status])
+}
+
+model Attachment {
+  id        String         @id @default(cuid())
+  requestId String
+  request   ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  name      String
+  mime      String
+  size      Int
+  data      String
+  createdAt DateTime       @default(now())
+}
+
+model Call {
+  id               String   @id @default(cuid())
+  employeeId       String
+  employee         Employee @relation(fields: [employeeId], references: [id])
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
+  leadId           String?
+  lead             Lead?    @relation(fields: [leadId], references: [id])
+  startedAt        DateTime
+  endedAt          DateTime?
+  durationSec      Int      @default(0)
+  direction        String   @default("OUTGOING")
+  callType         String   @default("Sales")
+  outcome          String   @default("CONNECTED")
+  connected        Boolean  @default(true)
+  notes            String?
+  followUpRequired Boolean  @default(false)
+  followUpDate     DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([startedAt])
+}
+
+model FollowUp {
+  id           String   @id @default(cuid())
+  leadId       String?
+  lead         Lead?    @relation(fields: [leadId], references: [id])
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  assignedToId String?
+  assignedTo   Employee? @relation(fields: [assignedToId], references: [id])
+  dueAt        DateTime
+  subject      String
+  notes        String?
+  status       String   @default("PENDING")
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model Estimate {
+  id               String   @id @default(cuid())
+  estimateNo       String   @unique
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id])
+  leadId           String?
+  lead             Lead?    @relation(fields: [leadId], references: [id])
+  title            String
+  status           String   @default("DRAFT")
+  validUntil       DateTime
+  subtotal         Float    @default(0)
+  discount         Float    @default(0)
+  taxRate          Float    @default(0)
+  taxAmount        Float    @default(0)
+  total            Float    @default(0)
+  notes            String?
+  createdById      String?
+  createdBy        User?    @relation("EstimateCreator", fields: [createdById], references: [id])
+  approvedById     String?
+  approvedBy       User?    @relation("EstimateApprover", fields: [approvedById], references: [id])
+  sentAt           DateTime?
+  decidedAt        DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  items            EstimateItem[]
+  project          Project?
+
+  @@index([status])
+}
+
+model EstimateItem {
+  id          String   @id @default(cuid())
+  estimateId  String
+  estimate    Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  description String
+  category    String   @default("LABOR")
+  quantity    Float    @default(1)
+  unit        String   @default("ea")
+  unitPrice   Float    @default(0)
+  amount      Float    @default(0)
+  sortOrder   Int      @default(0)
+}
+
+model Project {
+  id            String    @id @default(cuid())
+  projectNo     String    @unique
+  name          String
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  projectType   String    @default("Residential")
+  serviceId     String?
+  service       Service?  @relation(fields: [serviceId], references: [id])
+  serviceAddress String
+  description   String?
+  contractValue Float     @default(0)
+  startDate     DateTime?
+  expectedEnd   DateTime?
+  actualEnd     DateTime?
+  managerId     String?
+  manager       Employee? @relation("ProjectManager", fields: [managerId], references: [id])
+  status        String    @default("PENDING")
+  priority      String    @default("MEDIUM")
+  progress      Int       @default(0)
+  notes         String?
+  estimateId    String?   @unique
+  estimate      Estimate? @relation(fields: [estimateId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  jobs          Job[]
+
+  @@index([status])
+}
+
+model Job {
+  id             String    @id @default(cuid())
+  jobNo          String    @unique
+  projectId      String?
+  project        Project?  @relation(fields: [projectId], references: [id])
+  customerId     String
+  customer       Customer  @relation(fields: [customerId], references: [id])
+  address        String
+  jobType        String
+  description    String?
+  scheduledDate  DateTime?
+  startTime      String?
+  durationMins   Int       @default(240)
+  managerId      String?
+  manager        Employee? @relation("JobManager", fields: [managerId], references: [id])
+  dispatcherId   String?
+  dispatcher     Employee? @relation("JobDispatcher", fields: [dispatcherId], references: [id])
+  priority       String    @default("MEDIUM")
+  status         String    @default("UNSCHEDULED")
+  notes          String?
+  completionNotes String?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  assignments    JobAssignment[]
+
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+model JobAssignment {
+  id         String   @id @default(cuid())
+  jobId      String
+  job        Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  role       String   @default("CREW")
+
+  @@unique([jobId, employeeId])
+}
+
+model Attendance {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  date          DateTime
+  clockIn       String?
+  clockOut      String?
+  breakMins     Int      @default(30)
+  totalHours    Float    @default(0)
+  regularHours  Float    @default(0)
+  overtimeHours Float    @default(0)
+  lateMinutes   Int      @default(0)
+  status        String   @default("PRESENT")
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([date])
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  leadId      String?
+  lead        Lead?    @relation(fields: [leadId], references: [id])
+  type        String   @default("NOTE")
+  title       String
+  description String?
+  actorName   String?
+  createdAt   DateTime @default(now())
+
+  @@index([customerId])
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id])
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  role       String?
+  type       String    @default("INFO")
+  title      String
+  body       String?
+  link       String?
+  read       Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  userName      String
+  action        String
+  module        String
+  recordId      String?
+  recordLabel   String?
+  previousValue String?
+  newValue      String?
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  @@index([module])
+}
+
+model WebsiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  group     String   @default("general")
+  label     String?
+  updatedAt DateTime @updatedAt
+}
+
+model PortfolioProject {
+  id          String   @id @default(cuid())
+  title       String
+  category    String
+  description String
+  imageUrl    String
+  location    String
+  completedAt DateTime?
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  company   String?
+  quote     String
+  rating    Int      @default(5)
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model ServiceArea {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  state     String   @default("CO")
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+}
+
+model EmailLog {
+  id          String   @id @default(cuid())
+  to          String
+  subject     String
+  body        String
+  status      String   @default("SENT")
+  relatedType String?
+  relatedId   String?
+  createdAt   DateTime @default(now())
+}
+
+model Counter {
+  id    String @id
+  value Int
+}

@@ -1,0 +1,39 @@
+{
+  "name": "summit-builders-crm",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts"
+  },
+  "prisma": { "seed": "tsx prisma/seed.ts" },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "2.4.3",
+    "clsx": "^2.1.1",
+    "date-fns": "4.4.0",
+    "lucide-react": "1.47.0",
+    "next": "15.5.26",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "recharts": "3.8.0",
+    "tailwind-merge": "^3.3.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/bcryptjs": "2.4.6",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "postcss": "^8.4.49",
+    "prisma": "6.19.3",
+    "tailwindcss": "4.3.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}
